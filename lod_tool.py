@@ -16,6 +16,7 @@ class LODUI(QtWidgets.QDialog):
         self.lodList.setDragDropMode(QtWidgets.QAbstractItemView.InternalMove)
         self.lodList.setAlternatingRowColors(True)
         self.lodList.setSelectionMode(QtWidgets.QAbstractItemView.ExtendedSelection)
+
         self.cameraComboBox = QtWidgets.QComboBox()
 
         self.populateCamList()
@@ -54,7 +55,12 @@ class LODUI(QtWidgets.QDialog):
 
     def addListItems(self):
         selections = cmds.ls(selection=True)
-        self.lodList.addItems(selections)
+        for selection in selections:
+            # if it doesn't find a duplicate
+            if not self.lodList.findItems(selection, QtCore.Qt.MatchFixedString | QtCore.Qt.MatchCaseSensitive):
+                self.lodList.addItem(selection)
+            else:
+                print(f'duplicate detected')
     
     def removeListItems(self):
         listItems = self.lodList.selectedItems()
@@ -63,12 +69,16 @@ class LODUI(QtWidgets.QDialog):
             self.lodList.takeItem(self.lodList.row(item))
 
     def createLodCam(self):
-        cmds.camera(name='LodCam')
+        if(self.cameraComboBox.currentText() == 'Create New Camera'):
+            cmds.camera(name='LodCam')
+            self.populateCamList()
+        else:
+            print(f'current camera: {self.cameraComboBox.currentText}')
         
     def populateCamList(self):
         self.cameraComboBox.clear()
         cameralist = cmds.listCameras()
-        print(f'cameraList: {cameralist}')
+        print(f'repopulate: {cameralist}')
         self.cameraComboBox.addItem('Create New Camera')
         self.cameraComboBox.addItems(cameralist)
 
