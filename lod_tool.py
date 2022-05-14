@@ -1,4 +1,5 @@
 from maya import cmds
+import json
 from PySide2 import QtWidgets, QtGui, QtCore
 
 class LOD():
@@ -6,6 +7,7 @@ class LOD():
         self.camera = cmds.camera(name='LOD_camera')
         self.lod_list = lod_list
         self.distance = None
+        self.distance_interval = None
     
     def set_distance(self):
         if(cmds.objExists('distanceBetween1') != True):
@@ -13,6 +15,13 @@ class LOD():
             cmds.connectAttr(f'{self.camera[0]}.translate', f'{self.distance}.point1', f=True)
             translate = f'{self.lod_list[0]}.translate'
             cmds.connectAttr(translate, f'{self.distance}.point2', f=True)
+
+    def get_json(self):
+        return {
+            'camera' : self.camera,
+            'lod_list': self.lod_list,
+            'distance_interval': self.distance_interval
+        }
 
 
 class LODController():
@@ -30,13 +39,16 @@ class LODController():
     
     def link_lod_cam(self, lod, distance=False, percentage=False):
         cmds.lookThru(lod.camera)
-        lod.setDistance()
+        lod.set_distance()
         if distance:
             pass
             # print(f'distance: {distance}')
         elif percentage:
             pass
             # print(f'percentage: {percentage}')
+
+    def save_json(self):
+        pass
 
 class LODUI(QtWidgets.QDialog):
     def __init__(self):
@@ -60,23 +72,49 @@ class LODUI(QtWidgets.QDialog):
 
     def build_ui(self):
         # layouts
-        v_layout = QtWidgets.QVBoxLayout(self)
+        self.v_layout = QtWidgets.QVBoxLayout(self)
         h_layout_1 = QtWidgets.QHBoxLayout()
         h_layout_2 = QtWidgets.QHBoxLayout()
-        h_layout_3 = QtWidgets.QHBoxLayout()
+        self.h_layout_3 = QtWidgets.QHBoxLayout()
+        h_layout_4 = QtWidgets.QHBoxLayout()
 
         # widgets
-        prompt_1 = QtWidgets.QLabel('Add and Arrange LOD Models from most to least detailed')
+        self.toggle_widget = QtWidgets.QWidget()
         add_button = QtWidgets.QPushButton('Add')
         remove_button = QtWidgets.QPushButton('Remove')
         refresh_button = QtWidgets.QPushButton('Refresh')
         create_button = QtWidgets.QPushButton('Create')
-        interval_prompt = QtWidgets.QLabel('Distance Interval')
         interval_spinbox = QtWidgets.QSpinBox()
         self.distance_checkbox = QtWidgets.QCheckBox('Distance')
         self.distance_checkbox.setCheckState(QtCore.Qt.Checked)
         self.percentage_checkbox = QtWidgets.QCheckBox('Screen Height Percentage')
 
+        # adding widgets and layouts
+        self.v_layout.addWidget(QtWidgets.QLabel('Add and Arrange LOD Models from most to least detailed'))
+        self.v_layout.addWidget(self.lod_list)
+        self.v_layout.addLayout(h_layout_1)
+        self.v_layout.addLayout(h_layout_2)
+        self.toggle_widget.setLayout(self.h_layout_3)
+        self.v_layout.addWidget(self.toggle_widget)
+        self.v_layout.addLayout(h_layout_4)
+
+        h_layout_1.addWidget(add_button)
+        h_layout_1.addWidget(remove_button)
+
+
+        h_layout_2.addWidget(QtWidgets.QLabel('Threshold Type: '))
+        h_layout_2.addStretch()
+        h_layout_2.addWidget(self.distance_checkbox)
+        h_layout_2.addStretch()
+        h_layout_2.addWidget(self.percentage_checkbox)
+        h_layout_2.addStretch()
+
+        self.h_layout_3.addWidget(QtWidgets.QLabel('Distance Interval'))
+        self.h_layout_3.addWidget(interval_spinbox)
+        
+        h_layout_4.addWidget(self.camera_combobox)
+        h_layout_4.addWidget(create_button)
+        h_layout_4.addWidget(refresh_button)
 
         # signals
         add_button.clicked.connect(self.add_list_items)
@@ -86,34 +124,17 @@ class LODUI(QtWidgets.QDialog):
         self.distance_checkbox.stateChanged.connect(self.distance_state)
         self.percentage_checkbox.stateChanged.connect(self.percentage_state)
 
-        v_layout.addWidget(prompt_1)
-        v_layout.addWidget(self.lod_list)
-        v_layout.addLayout(h_layout_1)
-        v_layout.addWidget(QtWidgets.QSplitter(QtCore.Qt.Horizontal))
-        v_layout.addLayout(h_layout_2)
-        v_layout.addLayout(h_layout_3)
-
-        h_layout_1.addWidget(add_button)
-        h_layout_1.addWidget(remove_button)
-
-
-        h_layout_2.addWidget(interval_prompt)
-        h_layout_2.addWidget(interval_spinbox)
-        h_layout_2.addWidget(self.distance_checkbox)
-        h_layout_2.addWidget(self.percentage_checkbox)
-        
-        h_layout_3.addWidget(create_button)
-        h_layout_3.addWidget(refresh_button)
-        h_layout_3.addWidget(self.camera_combobox)
 
     def distance_state(self, s):
         if s == QtCore.Qt.Checked:
             self.percentage_checkbox.setCheckState(QtCore.Qt.Unchecked)
+            self.toggle_widget.setVisible(s)
 
     def percentage_state(self, s):
         if s == QtCore.Qt.Checked:
             self.distance_checkbox.setCheckState(QtCore.Qt.Unchecked)
-
+            self.toggle_widget.setVisible(not s)
+            
     def add_list_items(self):
         selections = cmds.ls(selection=True)
         for selection in selections:
